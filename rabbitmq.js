@@ -89,41 +89,6 @@ const fanout = (sendMsg,key) => {
 };
 
 
-/*let rpcQueue;
-let callbacks = {};
-const RPCInit = (ready) => {
-    "use strict";
-    channel.assertQueue('', {exclusive: true},  (err, q) => {
-        rpcQueue = q.queue;
-        channel.consume(q.queue,  (msg) => {
-            if (callbacks[msg.properties.correlationId] !== undefined) {
-                callbacks[msg.properties.correlationId](msg.content.toString());
-                callbacks[msg.properties.correlationId] = undefined;
-            }
-        }, {noAck: true});
-        ready();
-    });
-};
-const RPC = (queue,service,sendMsg,cb) =>{
-    return new Promise(function(resolve, reject) {
-        try {
-
-            const corr = generateUuid();
-            callbacks[corr] = cb;
-            console.log(corr);
-            if (typeof sendMsg !== 'string') {
-                sendMsg = JSON.stringify(sendMsg);
-            }
-            channel.sendToQueue("RPC." + queue,
-                new Buffer(sendMsg),
-                {correlationId: corr, replyTo: rpcQueue, type: service}
-            );
-        } catch(e) {
-            console.err(e);
-            reject(e.message);
-        }
-    });
-};*/
 const RPC = (queue,service,sendMsg) =>{
     return new Promise(function(resolve, reject) {
         try {
