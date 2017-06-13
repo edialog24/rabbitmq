@@ -1,0 +1,22 @@
+{
+  "name": "rabbitmq",
+  "version": "1.0.0",
+  "description": "",
+  "main": "rabbitConnect.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/edialog24/rabbitmq.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/edialog24/rabbitmq/issues"
+  },
+  "homepage": "https://github.com/edialog24/rabbitmq#readme",
+  "dependencies": {
+    "amqplib": "^0.5.1"
+  }
+}
