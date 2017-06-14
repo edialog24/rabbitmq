@@ -123,8 +123,7 @@ const generateUuid = () => {
         Math.random().toString();
 };
 
-function RPCListen(queue,cb) {
-    "use strict";
+function RPCListen(queue,cb, ...args) {
     const q = "RPC." + queue;
     channel.assertQueue(q, {durable: false});
     channel.prefetch(1);
@@ -140,7 +139,7 @@ function RPCListen(queue,cb) {
                     channel.ack(msg);
                 }
                 else {
-                    services[msg.properties.type](msg.content.toString(), resolve, reject);
+                    services[msg.properties.type](msg.content.toString(), resolve, args);
                 }
             }).then((sendMsg) => {
                 if (typeof sendMsg !== 'string') {
@@ -181,6 +180,49 @@ function listenFanout(queue,key,cb){
         }, {noAck: false});
     });
 }
+
+
+
+const use = (queue,services, ...params) => {
+    const q = "RPC." + queue;
+    channel.assertQueue(q, {durable: false});
+    channel.prefetch(1);
+    console.log(' [x] Awaiting RPC requests on queue:' + q);
+    channel.consume(q, (msg) => {
+        (function(msg){
+            if (services[msg.properties.type] === undefined) {
+                channel.sendToQueue(msg.properties.replyTo,
+                    new Buffer("Unknown service"),
+                    {correlationId: msg.properties.correlationId});
+                channel.ack(msg);
+            }
+            else {
+
+                Promise.resolve(services[msg.properties.type].resolve(msg.content.toString(),...params))
+                    .then((sendMsg) => {
+                        if (typeof sendMsg !== 'string') {
+                            sendMsg = JSON.stringify(sendMsg);
+                        }
+                        channel.sendToQueue(msg.properties.replyTo,
+                            new Buffer(sendMsg),
+                            {correlationId: msg.properties.correlationId});
+                        channel.ack(msg);
+                    })
+                    .catch((err) => console.error(err));
+            }
+        }(msg))
+    });
+};
+
+
+/*test:
+
+
+ var result = await rpc(microservice, service, |schema, externalSystemAPI, args);*/
+
+
+
+
 module.exports = {
     connect:connect,
     publish:publish,
@@ -194,6 +236,6 @@ module.exports = {
             connection.close(() => {
                 cb();
             })
-        } else {cb();}
-    }
+        } else {cb();}},
+    use:use
 };
