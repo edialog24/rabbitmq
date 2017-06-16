@@ -194,7 +194,6 @@ const use = (queue,services, ...params) => {
                 channel.sendToQueue(msg.properties.replyTo,
                     new Buffer("Unknown service"),
                     {correlationId: msg.properties.correlationId});
-                channel.ack(msg);
             }
             else {
 
@@ -206,11 +205,11 @@ const use = (queue,services, ...params) => {
                         channel.sendToQueue(msg.properties.replyTo,
                             new Buffer(sendMsg),
                             {correlationId: msg.properties.correlationId});
-                        channel.ack(msg);
                     })
                     .catch((err) => console.error(err));
             }
         }(msg))
+        channel.ack(msg);
     });
 };
 
