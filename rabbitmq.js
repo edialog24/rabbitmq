@@ -8,7 +8,7 @@ let exchangeFanout = '';
 let channel;
 let connection;
 
-const connect = (config) => {
+/*const connect = (config) => {
     return new Promise(function (resolve, reject) {
         try {
             exchange = config.exchange;
@@ -33,8 +33,8 @@ const connect = (config) => {
             console.error("[AMQP] connect", e.message);
         }
     });
-};
-/*function connect(config,cb)
+};*/
+function connect(config,cb)
 {
 
     exchange = config.exchange;
@@ -70,7 +70,7 @@ const connect = (config) => {
         });
 
     });
-}*/
+}
 
 const publish = (msg,key) => {
     return new Promise(function(resolve, reject) {
