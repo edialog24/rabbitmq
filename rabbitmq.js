@@ -1,5 +1,6 @@
 /*
 Rabbitmq wrapper for promise based connection
+Test
  */
 const amqp = require('amqplib/callback_api');
 let exchange = '';
