@@ -7,7 +7,7 @@ let exchangeFanout = '';
 let channel;
 let connection;
 
-/*const connect = (config) => {
+const connect = (config) => {
     return new Promise(function (resolve, reject) {
         try {
             exchange = config.exchange;
@@ -32,45 +32,7 @@ let connection;
             console.error("[AMQP] connect", e.message);
         }
     });
-};*/
-
-function connect(config,cb)
-{
-
-    exchange = config.exchange;
-    exchangeFanout = config.exchange+".fanout";
-    amqp.connect(config.url, function (err, conn) {
-        connection = conn;
-        if (err) {
-            console.error("[AMQP]", err);
-            return setTimeout(connect.bind(this,config,cb), 1000);
-        }
-        conn.on("error", function(err) {
-            if (err.message !== "Connection closing") {
-                console.error("[AMQP] conn error", err);
-                return setTimeout(connect.bind(this,config,cb), 1000);
-            }
-        });
-        conn.on("close", function(err) {
-            if (err.message !== "Connection closing") {
-                console.error("[AMQP] conn error", err);
-                return setTimeout(connect.bind(this,config,cb), 1000);
-            }
-        });
-
-        console.log("[AMQP] connected");
-        conn.createConfirmChannel(function (err, ch) {
-            console.log("Connected to rabbit");
-            channel = ch;
-            channel.assertExchange(exchange, 'direct', {durable: true});
-            channel.assertExchange(exchangeFanout, 'fanout', {durable: true});
-            if(cb)
-                cb(ch);
-
-        });
-
-    });
-}
+};
 
 const publish = (msg,key) => {
     return new Promise(function(resolve, reject) {
