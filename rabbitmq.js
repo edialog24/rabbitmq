@@ -1,9 +1,9 @@
+/*
+Rabbitmq wrapper for promise based connection
+ */
 const amqp = require('amqplib/callback_api');
 let exchange = '';
 let exchangeFanout = '';
-
-
-
 let channel;
 let connection;
 
