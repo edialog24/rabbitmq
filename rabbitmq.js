@@ -162,7 +162,7 @@ const listen = (queue,key,cb) => {
         //Fetch 5 messages in a time and wait for ack on those
         channel.prefetch(5);
         channel.consume(q.queue, (msg) => {
-            cb(() => {channel.ack(msg);},() => {channel.nack();},msg.content.toString());
+            cb(() => {channel.ack(msg);},() => {channel.nack(msg);},msg.content.toString());
         }, {noAck: false});
     });
 };
