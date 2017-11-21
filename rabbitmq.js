@@ -161,7 +161,7 @@ const listen = (queue,key,cb) => {
         //  channel.bindQueue(q.queue, exchangeFanout, key);
         //Fetch 5 messages in a time and wait for ack on those
         channel.prefetch(5);
-        channel.consume(q.queue, function(msg) {
+        channel.consume(q.queue, (msg) => {
             cb(() => {channel.ack(msg);},() => {channel.nack();},msg.content.toString());
         }, {noAck: false});
     });
