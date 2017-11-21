@@ -34,8 +34,7 @@ let connection;
         }
     });
 };*/
-function connect(config,cb)
-{
+const connect = (config,cb) => {
 
     exchange = config.exchange;
     exchangeFanout = config.exchange+".fanout";
@@ -72,7 +71,7 @@ function connect(config,cb)
     });
 }
 
-const publish = (msg,key) => {
+const publish = (msg, key) => {
     return new Promise(function(resolve, reject) {
         try {
 
@@ -150,7 +149,7 @@ const generateUuid = () => {
         Math.random().toString();
 };
 
-function RPCListen(queue,cb, ...args) {
+const RPCListen = (queue,cb, ...args) => {
     const q = "RPC." + queue;
     channel.assertQueue(q, {durable: false});
     channel.prefetch(1);
@@ -182,8 +181,8 @@ function RPCListen(queue,cb, ...args) {
             });
         }(msg))
     });
-}
-function listen(queue,key,cb){
+};
+const listen = (queue,key,cb) => {
     channel.assertQueue(queue, {durable:true},function(err, q) {
         console.log(' [*] Waiting for data on'+q.queue);
         channel.bindQueue(q.queue, exchange, key);
@@ -191,11 +190,11 @@ function listen(queue,key,cb){
         //Fetch 5 messages in a time and wait for ack on those
         channel.prefetch(5);
         channel.consume(q.queue, function(msg) {
-            cb(function(channel,msg) {channel.ack(msg);}.bind(this,channel,msg),msg.content.toString());
+            cb(() => {channel.ack(msg);},() => {channel.nack();},msg.content.toString());
         }, {noAck: false});
     });
-}
-function listenFanout(queue,key,cb){
+};
+const listenFanout = (queue,key,cb) => {
     channel.assertQueue(queue, {durable:true},function(err, q) {
         console.log(' [*] Waiting for data on'+q.queue);
 
@@ -206,7 +205,7 @@ function listenFanout(queue,key,cb){
             cb(() => {channel.ack(msg)},msg.content.toString());
         }, {noAck: false});
     });
-}
+};
 
 
 
