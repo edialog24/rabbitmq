@@ -240,14 +240,6 @@ const use = (queue,services, ...params) => {
 };
 
 
-/*test:
-
-
- var result = await rpc(microservice, service, |schema, externalSystemAPI, args);*/
-
-
-
-
 module.exports = {
     connect:connect,
     publish:publish,
