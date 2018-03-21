@@ -9,17 +9,25 @@ let channel;
 let connection;
 
 const connect = (config) => {
-    return new Promise(function (resolve, reject) {
+    return new Promise((resolve, reject) => {
         try {
             exchange = config.exchange;
             exchangeFanout = config.exchange + ".fanout";
-            amqp.connect(config.url, function (err, conn) {
+            amqp.connect(config.url,  (err, conn) => {
                 connection = conn;
                 if (err) {
                     console.error("[AMQP]", err);
                     reject(err);
                 }
                 console.log("[AMQP] connected");
+
+                conn.on("error", (err) => {
+                    throw err;
+                });
+                conn.on("close", (err) => {
+                    throw err;
+                });
+
                 conn.createConfirmChannel(function (err, ch) {
                     console.log("Connected to rabbit");
                     channel = ch;
@@ -35,7 +43,7 @@ const connect = (config) => {
     });
 };
 
-const publish = (msg,key) => {
+const publish = (msg, key) => {
     return new Promise(function(resolve, reject) {
         try {
             channel.publish(exchange, key, new Buffer(msg), {persistent: true}, function (err, ok) {
@@ -197,7 +205,7 @@ const generateUuid = () => {
         Math.random().toString();
 };
 
-function RPCListen(queue,cb, ...args) {
+const RPCListen = (queue,cb, ...args) => {
     const q = "RPC." + queue;
     channel.assertQueue(q, {durable: false});
     channel.prefetch(1);
@@ -229,16 +237,16 @@ function RPCListen(queue,cb, ...args) {
             });
         }(msg))
     });
-}
-function listen(queue,key,cb){
+};
+const listen = (queue,key,cb) => {
     channel.assertQueue(queue, {durable:true},function(err, q) {
         console.log(' [*] Waiting for data on'+q.queue);
         channel.bindQueue(q.queue, exchange, key);
         //  channel.bindQueue(q.queue, exchangeFanout, key);
         //Fetch 5 messages in a time and wait for ack on those
         channel.prefetch(5);
-        channel.consume(q.queue, function(msg) {
-            cb(function(channel,msg) {channel.ack(msg);}.bind(this,channel,msg),msg.content.toString());
+        channel.consume(q.queue, (msg) => {
+            cb(() => {channel.ack(msg);},() => {channel.nack(msg);},msg.content.toString());
         }, {noAck: false});
     });
 }
@@ -321,8 +329,7 @@ const useEvents = (queue, services, beforeTrigger, afterTrigger, ...params) => {
         channel.ack(msg);
     });
 };
-
-function listenFanout(queue,key,cb){
+const listenFanout = (queue,key,cb) => {
     channel.assertQueue(queue, {durable:true},function(err, q) {
         console.log(' [*] Waiting for data on'+q.queue);
 
@@ -333,7 +340,8 @@ function listenFanout(queue,key,cb){
             cb(() => {channel.ack(msg)},msg.content.toString());
         }, {noAck: false});
     });
-}
+};
+
 
 // Set up services (rpc receivers) server-side
 // Use triggers before and after service execution
