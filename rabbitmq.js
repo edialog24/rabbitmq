@@ -44,6 +44,10 @@ const connect = (config) => {
 };
 
 const publish = (msg, key) => {
+    if(typeof msg === 'object') {
+        // Json object, must be stringified
+        msg = JSON.stringify(msg);
+    }
     return new Promise(function(resolve, reject) {
         try {
             channel.publish(exchange, key, new Buffer(msg), {persistent: true}, function (err, ok) {
@@ -66,9 +70,21 @@ const publish = (msg, key) => {
 // Egen variant for å sende array med (msg,key)-par.
 // Kan da sende til forskjellige routing keys per msg.
 const publishEvents = (events) => {
+    if (!Array.isArray(events))
+    {
+        let event = events;
+        events = [];
+        events.push(event);
+    }
+
     return Promise.all(events.map((event) => new Promise((resolve, reject) => {
         try {
-            channel.publish(exchange, event.key, new Buffer(event.msg), {persistent: true}, function (err, ok) {
+            let msg = event.msg;
+            if(typeof event.msg === 'object') {
+                // Json object, must be stringified
+                msg = JSON.stringify(event.msg);
+            }
+            channel.publish(exchange, event.key, new Buffer(msg), {persistent: true}, function (err, ok) {
                     if (err !== null) {
                         reject(err);
                         console.warn(' [*] Message nacked');
