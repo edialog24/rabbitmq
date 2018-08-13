@@ -79,12 +79,11 @@ const publishEvents = (events) => {
 
     return Promise.all(events.map((event) => new Promise((resolve, reject) => {
         try {
-            let key = event.key;
-            if(typeof event === 'object') {
+            if(typeof event.msg === 'object') {
                 // Json object, must be stringified
-                event = JSON.stringify(event);
+                event.msg = JSON.stringify(event.msg);
             }
-            channel.publish(exchange, key, new Buffer(event), {persistent: true}, function (err, ok) {
+            channel.publish(exchange, event.key, new Buffer(event.msg), {persistent: true}, function (err, ok) {
                     if (err !== null) {
                         reject(err);
                         console.warn(' [*] Message nacked');
