@@ -48,9 +48,9 @@ const publish = (msg, key) => {
         // Json object, must be stringified
         msg = JSON.stringify(msg);
     }
-    return new Promise(function(resolve, reject) {
+    return new Promise((resolve, reject) =>  {
         try {
-            channel.publish(exchange, key, new Buffer(msg), {persistent: true}, function (err, ok) {
+            channel.publish(exchange, key, new Buffer(msg), {persistent: true}, (err, ok) => {
                     if (err !== null) {
                         reject(err);
                         console.warn(' [*] Message nacked');
