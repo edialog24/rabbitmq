@@ -254,7 +254,7 @@ const RPCListen = (queue,cb, ...args) => {
     });
 };
 const listen = (queue,key,cb) => {
-    channel.assertQueue(queue, {durable:true},function(err, q) {
+    channel.assertQueue(queue, {durable:true},(err, q) => {
         console.log(' [*] Waiting for data on'+q.queue);
         channel.bindQueue(q.queue, exchange, key);
         //  channel.bindQueue(q.queue, exchangeFanout, key);
