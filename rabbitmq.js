@@ -256,8 +256,7 @@ const RPCListen = (queue,cb, ...args) => {
 const listen = (queue,key,cb) => {
     channel.assertQueue(queue, {durable:true},(err, q) => {
         console.log(' [*] Waiting for data on'+q.queue);
-        channel.bindQueue(q.queue, exchange, key);
-        //  channel.bindQueue(q.queue, exchangeFanout, key);
+        channel.bindQueue(q.queue, exchangeFanout, key);
         //Fetch 5 messages in a time and wait for ack on those
         channel.prefetch(5);
         channel.consume(q.queue, (msg) => {
@@ -447,5 +446,6 @@ module.exports = {
             })
         } else {cb();}},
     useRPC:useRPC,
-    useEvents:useEvents
+    useEvents:useEvents,
+    generateUuid:generateUuid
 };
