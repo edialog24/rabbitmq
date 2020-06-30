@@ -256,7 +256,7 @@ const RPCListen = (queue,cb, ...args) => {
 const listen = (queue,key,cb) => {
     channel.assertQueue(queue, {durable:true},(err, q) => {
         console.log(' [*] Waiting for data on'+q.queue);
-        channel.bindQueue(q.queue, exchangeFanout, key);
+        channel.bindQueue(q.queue, exchange, key);
         //Fetch 5 messages in a time and wait for ack on those
         channel.prefetch(5);
         channel.consume(q.queue, (msg) => {
