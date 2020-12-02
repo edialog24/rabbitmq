@@ -265,6 +265,47 @@ const listen = (queue,key,cb) => {
     });
 }
 
+// listen promise-based with consumer canceling
+const listenp = (queue, key, promise, cb) => {
+    return new Promise((resolve, reject) =>  {
+        try {
+            channel.assertQueue(queue, {durable:true}, (err, q) => {
+                if (err !== null) {
+                    reject(err);
+                    console.warn(' [*] Listen rejected');
+                } else {
+                    console.log(' [*] Waiting for data on ' + q.queue);
+                    channel.bindQueue(q.queue, exchange, key);
+                    channel.prefetch(5);
+                    // Vi acker alltid/uansett
+
+                    channel.consume(q.queue, (msg) => {
+                        // Returnerer mottatt melding
+                        console.log('resolverer melding, promise ', promise);
+                        //console.log(msg.content.toString());
+                        console.log(msg.fields.consumerTag);
+                        // Cancel consuming
+                        channel.cancel(msg.fields.consumerTag);
+                        resolve(msg.content.toString());
+                        //cb(msg.content.toString());
+                    }, {noAck: true}/*, (err, ct) => {
+                        if (err !== null) {
+                            console.warn('feil!');
+                        } else
+                        {
+                            console.log('lars:');
+                            console.log(ct);
+                        }
+                    }*/);
+                }
+            });
+        } catch (e) {
+            reject(e.message);
+            console.error("[AMQP] listen", e.message);
+        }
+    });
+}
+
 // Set up services (event receivers) server-side
 // Use triggers before and after service execution
 const useEvents = (queue, services, beforeTrigger, afterTrigger, ...params) => {
@@ -434,6 +475,7 @@ module.exports = {
     publish:publish,
     publishEvents:publishEvents,
     listen:listen,
+    listenp:listenp,
     RPCListen:RPCListen,
     RPC:RPC,
     RPCMany:RPCMany,
