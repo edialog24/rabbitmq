@@ -8,6 +8,8 @@ let exchangeFanout = '';
 let channel;
 let connection;
 
+let mappingCorrelationIdConsumerTag = [];
+
 const connect = (config) => {
     return new Promise((resolve, reject) => {
         try {
@@ -56,7 +58,7 @@ const publish = (msg, key) => {
                         console.warn(' [*] Message nacked');
                     } else {
                         console.log(' [*] Message acked');
-                        resolve("Message sendt");
+                        resolve(msg);
                     }
                 }
             );
@@ -266,7 +268,8 @@ const listen = (queue,key,cb) => {
 }
 
 // listen promise-based with consumer canceling
-const listenp = (queue, key, promise, cb) => {
+const listenp = (queue, key, correlationId, cb) => {
+// NB! CorrelationId er direkte knyttet til consumerTag, dvs. det er en request/correlationId per consumer.
     return new Promise((resolve, reject) =>  {
         try {
             channel.assertQueue(queue, {durable:true}, (err, q) => {
@@ -277,26 +280,74 @@ const listenp = (queue, key, promise, cb) => {
                     console.log(' [*] Waiting for data on ' + q.queue);
                     channel.bindQueue(q.queue, exchange, key);
                     channel.prefetch(5);
-                    // Vi acker alltid/uansett
-
+                    //https://www.squaremobius.net/amqp.node/channel_api.html#channel_consume
                     channel.consume(q.queue, (msg) => {
-                        // Returnerer mottatt melding
-                        console.log('resolverer melding, promise ', promise);
+                        //console.log('msg.content:');
                         //console.log(msg.content.toString());
-                        console.log(msg.fields.consumerTag);
-                        // Cancel consuming
-                        channel.cancel(msg.fields.consumerTag);
-                        resolve(msg.content.toString());
-                        //cb(msg.content.toString());
-                    }, {noAck: true}/*, (err, ct) => {
-                        if (err !== null) {
-                            console.warn('feil!');
-                        } else
+                        let s = msg.content.toString();
+                        let parsed = JSON.parse(s);
+
+                        // Finner mappingen for denne consumeren
+                        const mapping = mappingCorrelationIdConsumerTag.filter(x => x.consumerTag === msg.fields.consumerTag);
+
+                        // Vi må sjekke på length fordi det kan tenkes at den andre exporten kommer inn på samme
+                        // consumer som den første (og denne consumeren kan allerede være terminert). Selv om
+                        // consumeren er terminert, så vil de prefetchede meldinge allerede trigge callbacken.
+                        // Er det samsvar mellom svarets correlationId og opprinnelig request sin correlationId?
+                        if (mapping.length > 0 && parsed.securityContext.correlationId === mapping[0].correlationId)
                         {
-                            console.log('lars:');
-                            console.log(ct);
+                            // Vi har mottatt riktig svar. Vi kan kansellere og resolve.
+                            channel.ack(msg);
+                            console.log(`Reply message consumed successfully with consumerTag ${msg.fields.consumerTag}.`);
+
+                            // Vi kan slette mappingen, siden den ikke har noen funksjon lenger...
+                            // (vi har mottatt svaret og tilhørende consumer blir terminert)
+                            mappingCorrelationIdConsumerTag = mappingCorrelationIdConsumerTag.filter(x => x.consumerTag !== msg.fields.consumerTag);
+
+                            // Cancel consuming (terminate consumer)
+                            channel.cancel(msg.fields.consumerTag, (err, ok)  => {
+                                if (err != null)
+                                {
+                                    console.log('Cancelling consumer failed with error message: ');
+                                    console.log(err.message);
+                                    reject(err.message);
+                                }
+                                else
+                                {
+                                    console.log('Canceled consumer successfully with consumerTag: ', ok.consumerTag);
+                                }
+                            });
+                            resolve(msg.content.toString());
+                            //cb(msg.content.toString());
                         }
-                    }*/);
+                        else
+                        {
+                            // Vi legger svaret tilbake i køa slik at en annen (korrekt) konsumer kan plukke og sjekke
+                            channel.nack(msg);
+                        }
+
+                    }, {noAck: false}, (err, ok)  => {
+                        if (err != null)
+                        {
+                            console.log('Starting consumer failed with error message: ');
+                            console.log(err.message);
+                            reject(err.message);
+                        }
+                        else
+                        {
+                            console.log('Started consumer successfully with consumerTag: ', ok.consumerTag);
+                            // Sjekker om correlationid ligger i array fra før...
+                            const mapping = mappingCorrelationIdConsumerTag.filter(x => x.correlationId === correlationId);
+                            // Ligger allerede i array
+                            if (mapping.length > 0)
+                            {
+                                console.log("Relation is already in the array");
+                            }
+                            else {
+                                mappingCorrelationIdConsumerTag.push({correlationId: correlationId, consumerTag: ok.consumerTag});
+                            }
+                        }
+                    });
                 }
             });
         } catch (e) {
