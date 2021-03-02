@@ -3,6 +3,9 @@
 
  */
 const amqp = require('amqplib/callback_api');
+
+const uuid = require("uuid");
+
 let exchange = '';
 let exchangeFanout = '';
 let channel;
@@ -217,9 +220,10 @@ const RPCMany = (queue, services) => {
 };
 
 const generateUuid = () => {
-    return Math.random().toString() +
+    /*return Math.random().toString() +
         Math.random().toString() +
-        Math.random().toString();
+        Math.random().toString();*/
+    return uuid.v4();
 };
 
 const RPCListen = (queue,cb, ...args) => {
@@ -287,8 +291,20 @@ const listenp = (queue, key, correlationId, cb) => {
                         let s = msg.content.toString();
                         let parsed = JSON.parse(s);
 
+                        const msgCorrelationId = parsed.securityContext.correlationId;
+                        console.log(`${msgCorrelationId}: Read message with queue/correlationId/consumerTag: ${q.queue} / ${msgCorrelationId} / ${msg.fields.consumerTag}`);
+
                         // Finner mappingen for denne consumeren
                         const mapping = mappingCorrelationIdConsumerTag.filter(x => x.consumerTag === msg.fields.consumerTag);
+
+                        if (mapping.length > 0)
+                        {
+                            console.log(`${msgCorrelationId}: Found corresponding correlationId/consumerTag: ${mapping[0].correlationId} / ${msg.fields.consumerTag}`);
+                        }
+                        else {
+                            console.log(`${msgCorrelationId}: No corresponding correlationId found for consumerTag: ${msg.fields.consumerTag}`);
+                        }
+
 
                         // Vi må sjekke på length fordi det kan tenkes at den andre exporten kommer inn på samme
                         // consumer som den første (og denne consumeren kan allerede være terminert). Selv om
@@ -298,7 +314,7 @@ const listenp = (queue, key, correlationId, cb) => {
                         {
                             // Vi har mottatt riktig svar. Vi kan kansellere og resolve.
                             channel.ack(msg);
-                            console.log(`Reply message consumed successfully with consumerTag ${msg.fields.consumerTag}.`);
+                            console.log(`${msgCorrelationId}: Reply message consumed (acked) successfully with queue/consumerTag: ${q.queue} / ${msg.fields.consumerTag}`);
 
                             // Vi kan slette mappingen, siden den ikke har noen funksjon lenger...
                             // (vi har mottatt svaret og tilhørende consumer blir terminert)
@@ -308,13 +324,13 @@ const listenp = (queue, key, correlationId, cb) => {
                             channel.cancel(msg.fields.consumerTag, (err, ok)  => {
                                 if (err != null)
                                 {
-                                    console.log('Cancelling consumer failed with error message: ');
+                                    console.log(`${msgCorrelationId}: Cancelling consumer failed with error message: `);
                                     console.log(err.message);
                                     reject(err.message);
                                 }
                                 else
                                 {
-                                    console.log('Canceled consumer successfully with consumerTag: ', ok.consumerTag);
+                                    console.log(`${msgCorrelationId}: Canceled consumer and resolved successfully with queue/consumerTag: ${q.queue} / ${msg.fields.consumerTag}`);
                                 }
                             });
                             resolve(msg.content.toString());
@@ -324,6 +340,7 @@ const listenp = (queue, key, correlationId, cb) => {
                         {
                             // Vi legger svaret tilbake i køa slik at en annen (korrekt) konsumer kan plukke og sjekke
                             channel.nack(msg);
+                            console.log(`${msgCorrelationId}: Reply message returned to queue (nacked) successfully with queue/consumerTag: ${q.queue} / ${msg.fields.consumerTag}`);
                         }
 
                     }, {noAck: false}, (err, ok)  => {
@@ -335,7 +352,7 @@ const listenp = (queue, key, correlationId, cb) => {
                         }
                         else
                         {
-                            console.log('Started consumer successfully with consumerTag: ', ok.consumerTag);
+                            console.log(`Started/created consumer successfully with queue/consumerTag: ${q.queue} / ${ok.consumerTag}`);
                             // Sjekker om correlationid ligger i array fra før...
                             const mapping = mappingCorrelationIdConsumerTag.filter(x => x.correlationId === correlationId);
                             // Ligger allerede i array
@@ -345,6 +362,7 @@ const listenp = (queue, key, correlationId, cb) => {
                             }
                             else {
                                 mappingCorrelationIdConsumerTag.push({correlationId: correlationId, consumerTag: ok.consumerTag});
+                                console.log(`Registered correspondance for correlationId/consumerTag: ${correlationId} / ${ok.consumerTag}`);
                             }
                         }
                     });
