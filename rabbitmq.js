@@ -375,6 +375,130 @@ const listenp = (queue, key, correlationId, cb) => {
     });
 }
 
+// Create/assert destination queue
+const listenDestination = (queue, correlationId) => {
+    // NB! CorrelationId er direkte knyttet til consumerTag, dvs. det er en response/correlationId per consumer.
+    return new Promise((resolve, reject) =>  {
+        try {
+            // Destination-qeueu/reply-queue
+            const queueName = queue + "." + correlationId;
+            channel.assertQueue(queueName, {durable: false/*, autoDelete: true*/}, (err, q) => {
+                if (err !== null) {
+                    reject(err);
+                    console.warn(' [*] Listen rejected');
+                } else {
+                    console.log(' [*] Waiting for data on ' + q.queue);
+                    channel.bindQueue(q.queue, exchange, q.queue);
+                    channel.prefetch(5);
+                    //https://www.squaremobius.net/amqp.node/channel_api.html#channel_consume
+                    channel.consume(q.queue, (msg) => {
+                        let s = msg.content.toString();
+                        let parsed = JSON.parse(s);
+                        console.log(`Destination response consumed and parsed successfully`);
+
+                        // Cancel consuming (terminate consumer)
+                        channel.cancel(msg.fields.consumerTag, (err, ok)  => {
+                            if (err != null)
+                            {
+                                console.log(`${correlationId}: Cancelling destination consumer failed with error message: `);
+                                console.log(err.message);
+                                reject(err.message);
+                            }
+                            else
+                            {
+                                console.log(`${correlationId}: Canceled destination consumer successfully with queue/consumerTag: ${q.queue} / ${msg.fields.consumerTag}`);
+
+                                // Delete queue
+                                channel.deleteQueue(q.queue, {}, (err, ok)  => {
+                                    if (err != null) {
+                                        console.log(`${correlationId}: Delete destination queue failed with error message: `);
+                                        console.log(err.message);
+                                        reject(err.message);
+                                    } else {
+                                        console.log(`${correlationId}: Deleted destination queue successfully with queue/consumerTag: ${q.queue} / ${msg.fields.consumerTag}`);
+                                    }
+                                });
+                            }
+                        });
+                        resolve(msg.content.toString());
+                    }, {noAck: false, consumerTag: correlationId}, (err, ok)  => {
+                        if (err != null)
+                        {
+                            console.log('Starting destination consumer failed with error message: ');
+                            console.log(err.message);
+                            reject(err.message);
+                        }
+                        else
+                        {
+                            console.log(`Started/created destination consumer successfully with queue/consumerTag: ${q.queue} / ${ok.consumerTag}`);
+                        }
+                    });
+                }
+            });
+        } catch (e) {
+            reject(e.message);
+            console.error("[AMQP] listen", e.message);
+        }
+    });
+}
+
+// Create destination queue and start inital consumer
+// The inital consumer makes shure the queue will preserve any messages sent/published to it
+const listenInitial = (queue, correlationId) => {
+    return new Promise((resolve, reject) =>  {
+        try {
+            // Destination-queue/reply-queue
+            const queueName = queue + "." + correlationId;
+            channel.assertQueue(queueName, {durable: false/*, autoDelete: true*/}, (err, q) => {
+                if (err !== null) {
+                    reject(err);
+                    console.warn(' [*] Listen rejected');
+                } else {
+                    console.log(' [*] Waiting for data on ' + q.queue);
+                    channel.bindQueue(q.queue, exchange, q.queue);
+                    channel.prefetch(5);
+                    //https://www.squaremobius.net/amqp.node/channel_api.html#channel_consume
+                    channel.consume(q.queue, (msg) => {
+                        // nacker direkte
+                        if (msg !== null) {
+                            //console.log(`Nacking immediately`);
+                            //channel.nack(msg);
+
+                            // Cancel consuming (terminate consumer)
+                            channel.cancel(msg.fields.consumerTag, (err, ok)  => {
+                                if (err != null) {
+                                    console.log(`Cancelling inital consumer failed with error message: `);
+                                    console.log(err.message);
+                                    reject(err.message);
+                                } else {
+                                    console.log(`Nacking after canceling`);
+                                    channel.nack(msg);
+                                    console.log(`Canceled inital consumer successfully with queue/consumerTag: ${q.queue} / ${msg.fields.consumerTag}`);
+                                }
+                            });
+                        }
+                    }, {noAck: false, consumerTag: correlationId + "_initial"}, (err, ok)  => {
+                        if (err != null)
+                        {
+                            console.log('Starting initial consumer failed with error message: ');
+                            console.log(err.message);
+                            reject(err.message);
+                        }
+                        else
+                        {
+                            console.log(`Started/created inital consumer successfully with queue/consumerTag: ${q.queue} / ${ok.consumerTag}`);
+                            resolve(`Initial consumer with consumerTag ${ok.consumerTag} created`);
+                        }
+                    });
+                }
+            });
+        } catch (e) {
+            reject(e.message);
+            console.error("[AMQP] listen", e.message);
+        }
+    });
+}
+
 // Set up services (event receivers) server-side
 // Use triggers before and after service execution
 const useEvents = (queue, services, beforeTrigger, afterTrigger, ...params) => {
@@ -539,12 +663,53 @@ const useRPC = (queue,services, beforeTrigger, afterTrigger, ...params) => {
     });
 };
 
+// Check queue for consumer count
+const checkQueue = (queue) => {
+    return new Promise((resolve, reject) =>  {
+        try {
+            channel.checkQueue(queueName,(err, q) => {
+                if (err !== null) {
+                    reject(err);
+                    console.warn('Check queue rejected');
+                } else {
+                    console.log('Consumer count: ' + q.consumerCount);
+                    resolve(q.consumerCount);
+                }
+            });
+        } catch (e) {
+            reject(e.message);
+            console.error("[AMQP] check queue", e.message);
+        }
+    });
+}
+
+// Create queue only
+const createQueue = (queue) => {
+    return new Promise((resolve, reject) =>  {
+        try {
+            channel.assertQueue(queue, {durable: true/*, autoDelete: true*/}, (err, q) => {
+                if (err !== null) {
+                    reject(err);
+                    console.warn('Assert queue rejected');
+                } else {
+                    console.log('Queue created/asserted, queue info: ' + q);
+                    resolve(q);
+                }
+            });
+        } catch (e) {
+            reject(e.message);
+            console.error("[AMQP] assert queue", e.message);
+        }
+    });
+}
+
 module.exports = {
     connect:connect,
     publish:publish,
     publishEvents:publishEvents,
     listen:listen,
     listenp:listenp,
+    listenDestination:listenDestination,
     RPCListen:RPCListen,
     RPC:RPC,
     RPCMany:RPCMany,
@@ -558,5 +723,8 @@ module.exports = {
         } else {cb();}},
     useRPC:useRPC,
     useEvents:useEvents,
-    generateUuid:generateUuid
+    generateUuid:generateUuid,
+    checkQueue:checkQueue,
+    createQueue:createQueue,
+    listenInitial:listenInitial
 };
